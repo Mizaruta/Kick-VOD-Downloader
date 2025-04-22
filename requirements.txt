@@ -1,5 +1,12 @@
-tkinter
+# Dépendances pour Kick.com VOD Downloader
+# Installez-les avec : pip install -r requirements.txt
+
+# Librairies principales
 playwright
 m3u8
 Pillow
 ffmpeg-python
+tkinterdnd2
+
+# tkinter est inclus dans Python standard (Windows, macOS, Linux)
+# et n'a pas besoin d'être installé séparément

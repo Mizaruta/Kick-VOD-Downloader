@@ -1,3 +1,29 @@
+import sys
+import time
+
+# Détection dynamique des dépendances manquantes
+missing = []
+try:
+    import tkinter
+except ImportError:
+    missing.append('tkinter')
+try:
+    import playwright
+except ImportError:
+    missing.append('playwright')
+try:
+    import m3u8
+except ImportError:
+    missing.append('m3u8')
+try:
+    from PIL import Image, ImageTk
+except ImportError:
+    missing.append('Pillow')
+try:
+    import ffmpeg
+except ImportError:
+    missing.append('ffmpeg-python')
+
 import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox, filedialog
 import subprocess
@@ -13,6 +39,8 @@ import io
 from PIL import Image, ImageTk
 import winsound
 from urllib.request import urlopen
+import platform
+import venv
 
 # === Thèmes ===
 DARK_BG = "#181a20"
@@ -42,10 +70,88 @@ if not os.path.exists(dossier_sortie):
         tk.messagebox.showerror("Erreur", f"Impossible de créer le dossier de sortie : {e}")
         exit(1)
 
-fenetre = tk.Tk()
+# --- Drag & drop cross-platform avec fallback si tkinterdnd2 non dispo ---
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD
+    DND_AVAILABLE = True
+except ImportError:
+    DND_AVAILABLE = False
+
+if DND_AVAILABLE:
+    fenetre = TkinterDnD.Tk()
+else:
+    fenetre = tk.Tk()
+
 fenetre.title("Kick.com VOD Downloader")
 fenetre.geometry('650x570')
 fenetre.configure(bg=DARK_BG)
+
+def show_missing_deps_toast():
+    msg = (
+        "Dépendances manquantes : " + ', '.join(missing) +
+        "\nOuvre un terminal dans ce dossier et lance :\n"
+        "pip install -r requirements.txt"
+    )
+    # Détection automatique d'un venv
+    venv_found = False
+    venv_path = None
+    for d in os.listdir(os.getcwd()):
+        if os.path.isdir(d) and (os.path.exists(os.path.join(d, 'Scripts', 'activate')) or os.path.exists(os.path.join(d, 'bin', 'activate'))):
+            venv_found = True
+            venv_path = d
+            break
+    if venv_found:
+        msg += f"\n(Venv détecté : {venv_path})"
+    toast = tk.Toplevel(fenetre)
+    toast.overrideredirect(True)
+    toast.geometry(f"400x170+{fenetre.winfo_x()+60}+{fenetre.winfo_y()+60}")
+    toast.configure(bg="#23272e")
+    toast.attributes('-topmost', True)
+    label = tk.Label(
+        toast, text=msg, bg="#23272e", fg="#fff",
+        font=("Segoe UI", 10, "bold"), wraplength=380, justify="left"
+    )
+    label.pack(fill='both', expand=True, padx=16, pady=(14,2))
+    def copy_cmd():
+        fenetre.clipboard_clear()
+        fenetre.clipboard_append('pip install -r requirements.txt')
+        btn_copier.config(text="✅ Copié !")
+        toast.after(1500, lambda: btn_copier.config(text="Copier la commande"))
+    def open_terminal():
+        sys_plat = platform.system()
+        try:
+            if sys_plat == "Windows":
+                subprocess.Popen(["start", "cmd"], shell=True)
+            elif sys_plat == "Darwin":
+                subprocess.Popen(["open", "-a", "Terminal", "."])
+            elif sys_plat == "Linux":
+                subprocess.Popen(["x-terminal-emulator"], cwd=os.getcwd())
+        except Exception:
+            pass
+    def install_auto():
+        try:
+            pip_exe = sys.executable.replace('python.exe','Scripts\\pip.exe') if sys.platform.startswith('win') else sys.executable.replace('python','pip')
+            subprocess.Popen([pip_exe, 'install', '-r', 'requirements.txt'])
+            btn_install.config(text="✅ Installation lancée !")
+            toast.after(2000, lambda: btn_install.config(text="Installer automatiquement"))
+        except Exception:
+            btn_install.config(text="Erreur installation")
+    btn_copier = ttk.Button(toast, text="Copier la commande", command=copy_cmd)
+    btn_copier.pack(pady=(0,2))
+    btn_terminal = ttk.Button(toast, text="Ouvrir un terminal", command=open_terminal)
+    btn_terminal.pack(pady=(0,2))
+    btn_install = ttk.Button(toast, text="Installer automatiquement", command=install_auto)
+    btn_install.pack(pady=(0,10))
+    # Fade in
+    for i in range(0, 11):
+        toast.attributes('-alpha', 0.75 + 0.025*i)
+        toast.update()
+        time.sleep(0.01)
+    toast.after(9000, toast.destroy)
+
+if missing:
+    # Affiche le toast après l'initialisation de la fenêtre principale
+    fenetre.after(500, show_missing_deps_toast)
 
 header = tk.Frame(fenetre, bg=DARK_ACCENT, highlightthickness=0)
 header.pack(fill='x', pady=(0, 0))
@@ -319,27 +425,28 @@ def drop_url(event):
     if url.startswith("http"):
         entry_url.delete(0, tk.END)
         entry_url.insert(0, url)
-fenetre.drop_target_register('DND_Text')
-fenetre.dnd_bind('<<Drop>>', drop_url)
 
-# --- Affichage miniature vidéo ---
-def show_thumbnail(m3u8_url):
-    try:
-        # Extraction d'une image du flux (premier segment)
-        base = m3u8_url.split(".m3u8")[0]
-        thumb_url = base + "/preview.jpg"
-        img_bytes = urlopen(thumb_url).read()
-        img = Image.open(io.BytesIO(img_bytes)).resize((120, 68))
-        img_tk = ImageTk.PhotoImage(img)
-        if hasattr(fenetre, "thumb_label"):
-            fenetre.thumb_label.config(image=img_tk)
-            fenetre.thumb_label.image = img_tk
-        else:
-            fenetre.thumb_label = tk.Label(header, image=img_tk, bg=header['bg'])
-            fenetre.thumb_label.image = img_tk
-            fenetre.thumb_label.pack(side='right', padx=10)
-    except Exception:
-        pass
+if DND_AVAILABLE:
+    fenetre.drop_target_register(DND_FILES)
+    fenetre.dnd_bind('<<Drop>>', drop_url)
+else:
+    def show_dnd_warning():
+        toast = tk.Toplevel(fenetre)
+        toast.overrideredirect(True)
+        toast.geometry(f"340x60+{fenetre.winfo_x()+60}+{fenetre.winfo_y()+60}")
+        toast.configure(bg="#23272e")
+        toast.attributes('-topmost', True)
+        label = tk.Label(
+            toast, text="Le drag & drop nécessite le module tkinterdnd2\n(pip install tkinterdnd2)",
+            bg="#23272e", fg="#fff", font=("Segoe UI", 10, "bold"), wraplength=320, justify="left"
+        )
+        label.pack(fill='both', expand=True, padx=16, pady=14)
+        for i in range(0, 11):
+            toast.attributes('-alpha', 0.75 + 0.025*i)
+            toast.update()
+            time.sleep(0.01)
+        toast.after(6000, toast.destroy)
+    fenetre.after(1200, show_dnd_warning)
 
 # --- Progression avancée avec stats, temps restant, vitesse moyenne ---
 # ... Dans la boucle de progression du téléchargement ...
