@@ -1,15 +1,16 @@
 # Kick.com VOD Downloader
 
-Application moderne pour télécharger les VOD de Kick.com avec interface graphique animée, mode sombre/clair, historique persistant, drag & drop, et plus encore.
+Application moderne pour télécharger les VOD de Kick.com avec interface graphique animée, mode sombre/clair, historique persistant, drag & drop, miniature vidéo, et plus encore.
 
 ## Fonctionnalités principales
 - Téléchargement de VOD Kick.com (pas de live)
 - Interface graphique Windows 11 moderne (Tkinter custom)
-- Barre de progression animée, stats avancées (vitesse, ETA, taille)
-- Historique persistant
+- Barre de progression animée, stats avancées (taille, vitesse instantanée et moyenne, ETA)
+- Historique persistant (restauré à chaque lancement)
 - Drag & drop d’URL
-- Miniature vidéo affichée
+- Miniature vidéo affichée automatiquement
 - Switch dark/light instantané
+- Notification sonore à la fin
 
 ## Installation
 
@@ -34,7 +35,8 @@ Le .exe sera dans `dist/`.
 - tkinter
 - playwright
 - m3u8
-- pillow
+- Pillow
+- ffmpeg-python
 
 ## Auteurs
 - @votre_nom
