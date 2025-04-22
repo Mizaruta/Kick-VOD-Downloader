@@ -39,7 +39,7 @@ Le .exe sera dans `dist/`.
 - ffmpeg-python
 
 ## Auteurs
-- @votre_nom
+- @Mizaruta
 
 ---
 
